@@ -1,6 +1,5 @@
 import "reflect-metadata";
-import { MikroORM } from "@mikro-orm/core";
-import microConfig from "./mikro-orm.config";
+
 import express from "express";
 import { ApolloServer } from "apollo-server-express";
 import { buildSchema } from "type-graphql";
@@ -15,16 +14,20 @@ import { __prod__ } from "./constants";
 import { MyContext } from "./types";
 
 import cors from "cors";
+import { createConnection } from "typeorm";
+import { Post } from "./entities/Post";
+import { User } from "./entities/User";
 
 const main = async () => {
-	const orm = await MikroORM.init(microConfig);
-
-	await orm.getMigrator().up();
-	// const post = orm.em.create(Post, { title: "my first post" });
-	// await orm.em.persistAndFlush(post);
-
-	// 	const posts = await orm.em.find(Post, {});
-	// 	console.log(posts);
+	const conn = await createConnection({
+		type: "postgres",
+		database: "redditMock2",
+		username: "postgres",
+		password: "!Luoli1998",
+		logging: true,
+		synchronize: true,
+		entities: [Post, User],
+	});
 
 	const app = express();
 
@@ -63,7 +66,6 @@ const main = async () => {
 			validate: false,
 		}),
 		context: ({ req, res }): MyContext => ({
-			em: orm.em,
 			req,
 			res,
 			redis,
