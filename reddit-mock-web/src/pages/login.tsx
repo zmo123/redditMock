@@ -25,8 +25,13 @@ export const Login: React.FC<{}> = ({}) => {
 					if (response.data?.login.errors) {
 						setErrors(toErrorMap(response.data.login.errors));
 					} else if (response.data?.login.user) {
-						//successfully registered
-						router.push("/");
+						if (typeof router.query.next === "string") {
+							//if coming from create-post since the user is not logged in
+							router.push(router.query.next);
+						} else {
+							//successfully registered
+							router.push("/");
+						}
 					}
 				}}
 			>

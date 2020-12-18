@@ -141,7 +141,7 @@ let UserResolver = class UserResolver {
                 })
                     .returning("*")
                     .execute();
-                user = result.raw;
+                user = result.raw[0];
             }
             catch (err) {
                 console.log(err);

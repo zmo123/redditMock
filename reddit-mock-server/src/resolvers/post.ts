@@ -1,12 +1,55 @@
 import { Post } from "../entities/Post";
-import { Resolver, Query, Arg, Mutation } from "type-graphql";
+import {
+	Resolver,
+	Query,
+	Arg,
+	Mutation,
+	InputType,
+	Field,
+	Ctx,
+	UseMiddleware,
+	Int,
+	FieldResolver,
+	Root,
+} from "type-graphql";
 
-@Resolver()
+import { MyContext } from "src/types";
+import { isAuth } from "../middleware/isAuth";
+import { getConnection } from "typeorm";
+
+@InputType()
+class PostInput {
+	@Field()
+	title: string;
+	@Field()
+	text: string;
+}
+
+@Resolver(Post)
 export class PostResolver {
+	@FieldResolver(() => String)
+	textSnippet(@Root() root: Post) {
+		return root.text.slice(0, 50);
+	}
+
 	@Query(() => [Post]) //setting graphQL type
-	posts(): Promise<Post[]> {
+	async posts(
+		@Arg("limit", () => Int) limit: number,
+		@Arg("cursor", () => String, { nullable: true }) cursor: string | null
+	): Promise<Post[]> {
 		//setting typescript function return type
-		return Post.find();
+		const realLimit = Math.min(50, limit);
+		const qb = getConnection()
+			.getRepository(Post)
+			.createQueryBuilder("p")
+			.orderBy('"createdAt"', "DESC")
+			.take(realLimit);
+
+		if (cursor) {
+			qb.where('"createdAt" < :cursor', { cursor: new Date(parseInt(cursor)) });
+		}
+
+		return qb.getMany();
 	}
 
 	@Query(() => Post, { nullable: true })
@@ -15,9 +58,13 @@ export class PostResolver {
 	}
 
 	@Mutation(() => Post)
-	async createPost(@Arg("title") title: string): Promise<Post> {
+	@UseMiddleware(isAuth)
+	async createPost(
+		@Arg("input") input: PostInput,
+		@Ctx() { req }: MyContext
+	): Promise<Post | any> {
 		//this is actually 2 sql queries
-		return Post.create({ title }).save();
+		return Post.create({ ...input, creatorId: req.session.userId }).save();
 	}
 
 	@Mutation(() => Post, { nullable: true })
