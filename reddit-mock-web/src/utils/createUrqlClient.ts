@@ -1,5 +1,10 @@
-import { cacheExchange } from "@urql/exchange-graphcache";
-import { dedupExchange, Exchange, fetchExchange } from "urql";
+import { cacheExchange, Resolver } from "@urql/exchange-graphcache";
+import {
+	dedupExchange,
+	Exchange,
+	fetchExchange,
+	stringifyVariables,
+} from "urql";
 import { pipe, tap } from "wonka";
 import {
 	LoginMutation,
@@ -26,6 +31,49 @@ const errorExchange: Exchange = ({ forward }) => (ops$) => {
 	);
 };
 
+const cursorPagination = (): Resolver => {
+	return (_parent, fieldArgs, cache, info) => {
+		const { parentKey: entityKey, fieldName } = info;
+
+		//reading data from the cache
+		const allFields = cache.inspectFields(entityKey); //search for the entityKey in the current cache
+		const fieldInfos = allFields.filter((info) => info.fieldName === fieldName);
+
+		const size = fieldInfos.length;
+		if (size === 0) {
+			return undefined;
+		}
+
+		//need to tell urql that we need to fetch data from server rather than cache
+		const fieldKey = `${fieldName}(${stringifyVariables(fieldArgs)})`;
+		//check if the data is already in the cache
+		const isItInTheCache = cache.resolve(
+			cache.resolve(entityKey, fieldKey) as string,
+			"posts"
+		);
+		//if the data is already in the cache, no need to fetch from server, else fetch from server
+		info.partial = !isItInTheCache; //partial return
+		let hasMore = true;
+		const results: string[] = [];
+		fieldInfos.forEach((fi) => {
+			const key = cache.resolve(entityKey, fi.fieldKey) as string;
+			const data = cache.resolve(key, "posts") as string[];
+			const _hasMore = cache.resolve(key, "hasMore");
+			if (!_hasMore) {
+				hasMore = _hasMore as boolean;
+			}
+
+			results.push(...data);
+		});
+
+		return {
+			__typename: "PaginatedPosts",
+			hasMore,
+			posts: results,
+		};
+	};
+};
+
 export const createUrqlClient = (ssrExchange: any) => ({
 	url: "http://localhost:4000/graphql",
 	fetchOptions: {
@@ -34,9 +82,17 @@ export const createUrqlClient = (ssrExchange: any) => ({
 	exchanges: [
 		dedupExchange,
 		cacheExchange({
+			keys: {
+				PaginatedPosts: () => null,
+			},
+			resolvers: {
+				Query: {
+					posts: cursorPagination(),
+				},
+			},
 			updates: {
 				Mutation: {
-					login: (_result, args, cache, info) => {
+					login: (_result, _, cache, __) => {
 						betterUpdateQuery<LoginMutation, MeQuery>(
 							cache,
 							{ query: MeDocument },
