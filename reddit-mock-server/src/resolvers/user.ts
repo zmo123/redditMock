@@ -10,6 +10,8 @@ import {
 	Field,
 	ObjectType,
 	Query,
+	FieldResolver,
+	Root,
 } from "type-graphql";
 import { UsernamePasswordInput } from "./UsernamePasswordInput";
 import { validateRegister } from "../utils/validateRegister";
@@ -33,8 +35,19 @@ class UserResponse {
 	user?: User;
 }
 
-@Resolver()
+@Resolver(User)
 export class UserResolver {
+	@FieldResolver(() => String)
+	email(@Root() user: User, @Ctx() { req }: MyContext) {
+		//this is the current user and it is ok to show them their own email
+		if (req.session.userId === user.id) {
+			return user.email;
+		}
+
+		//current user is not the current post's creator, so userId is different
+		return "";
+	}
+
 	@Mutation(() => UserResponse)
 	async changePassword(
 		@Arg("token") token: string,
