@@ -1,0 +1,9 @@
+ssr 
+    the first load on the webpage is ssr, rest of it is client side
+    browser -> next.js -> graphql api
+        browser is sending the cookie to next.js, not next is not sending cookie to graphql, therefore not fetching the req.user.id
+        so voteStatus is null
+
+client side
+    browser -> graphql 
+        browser is sending the cookie to graphql so it is working 

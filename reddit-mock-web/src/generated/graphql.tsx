@@ -30,7 +30,7 @@ export type QueryPostsArgs = {
 
 
 export type QueryPostArgs = {
-  id: Scalars['Float'];
+  id: Scalars['Int'];
 };
 
 export type PaginatedPosts = {
@@ -44,6 +44,7 @@ export type Post = {
   id: Scalars['Int'];
   text: Scalars['String'];
   points: Scalars['Float'];
+  voteStatus?: Maybe<Scalars['Int']>;
   createdAt: Scalars['String'];
   updatedAt: Scalars['String'];
   title: Scalars['String'];
@@ -141,6 +142,15 @@ export type UsernamePasswordInput = {
   password: Scalars['String'];
 };
 
+export type PostSnippetFragment = (
+  { __typename?: 'Post' }
+  & Pick<Post, 'id' | 'createdAt' | 'updatedAt' | 'title' | 'points' | 'textSnippet' | 'voteStatus'>
+  & { creator: (
+    { __typename?: 'User' }
+    & Pick<User, 'id' | 'username'>
+  ) }
+);
+
 export type RegularErrorFragment = (
   { __typename?: 'FieldError' }
   & Pick<FieldError, 'field' | 'message'>
@@ -234,6 +244,17 @@ export type RegisterMutation = (
   ) }
 );
 
+export type VoteMutationVariables = Exact<{
+  value: Scalars['Int'];
+  postId: Scalars['Int'];
+}>;
+
+
+export type VoteMutation = (
+  { __typename?: 'Mutation' }
+  & Pick<Mutation, 'vote'>
+);
+
 export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -242,6 +263,23 @@ export type MeQuery = (
   & { me?: Maybe<(
     { __typename?: 'User' }
     & RegularUserFragment
+  )> }
+);
+
+export type PostQueryVariables = Exact<{
+  id: Scalars['Int'];
+}>;
+
+
+export type PostQuery = (
+  { __typename?: 'Query' }
+  & { post?: Maybe<(
+    { __typename?: 'Post' }
+    & Pick<Post, 'id' | 'createdAt' | 'updatedAt' | 'title' | 'points' | 'text' | 'voteStatus'>
+    & { creator: (
+      { __typename?: 'User' }
+      & Pick<User, 'id' | 'username'>
+    ) }
   )> }
 );
 
@@ -258,15 +296,26 @@ export type PostsQuery = (
     & Pick<PaginatedPosts, 'hasMore'>
     & { posts: Array<(
       { __typename?: 'Post' }
-      & Pick<Post, 'id' | 'createdAt' | 'updatedAt' | 'title' | 'textSnippet'>
-      & { creator: (
-        { __typename?: 'User' }
-        & Pick<User, 'id' | 'username'>
-      ) }
+      & PostSnippetFragment
     )> }
   ) }
 );
 
+export const PostSnippetFragmentDoc = gql`
+    fragment PostSnippet on Post {
+  id
+  createdAt
+  updatedAt
+  title
+  points
+  textSnippet
+  voteStatus
+  creator {
+    id
+    username
+  }
+}
+    `;
 export const RegularErrorFragmentDoc = gql`
     fragment RegularError on FieldError {
   field
@@ -358,6 +407,15 @@ export const RegisterDocument = gql`
 export function useRegisterMutation() {
   return Urql.useMutation<RegisterMutation, RegisterMutationVariables>(RegisterDocument);
 };
+export const VoteDocument = gql`
+    mutation Vote($value: Int!, $postId: Int!) {
+  vote(value: $value, postId: $postId)
+}
+    `;
+
+export function useVoteMutation() {
+  return Urql.useMutation<VoteMutation, VoteMutationVariables>(VoteDocument);
+};
 export const MeDocument = gql`
     query Me {
   me {
@@ -369,24 +427,37 @@ export const MeDocument = gql`
 export function useMeQuery(options: Omit<Urql.UseQueryArgs<MeQueryVariables>, 'query'> = {}) {
   return Urql.useQuery<MeQuery>({ query: MeDocument, ...options });
 };
+export const PostDocument = gql`
+    query Post($id: Int!) {
+  post(id: $id) {
+    id
+    createdAt
+    updatedAt
+    title
+    points
+    text
+    voteStatus
+    creator {
+      id
+      username
+    }
+  }
+}
+    `;
+
+export function usePostQuery(options: Omit<Urql.UseQueryArgs<PostQueryVariables>, 'query'> = {}) {
+  return Urql.useQuery<PostQuery>({ query: PostDocument, ...options });
+};
 export const PostsDocument = gql`
     query Posts($limit: Int!, $cursor: String) {
   posts(cursor: $cursor, limit: $limit) {
     hasMore
     posts {
-      id
-      createdAt
-      updatedAt
-      title
-      textSnippet
-      creator {
-        id
-        username
-      }
+      ...PostSnippet
     }
   }
 }
-    `;
+    ${PostSnippetFragmentDoc}`;
 
 export function usePostsQuery(options: Omit<Urql.UseQueryArgs<PostsQueryVariables>, 'query'> = {}) {
   return Urql.useQuery<PostsQuery>({ query: PostsDocument, ...options });

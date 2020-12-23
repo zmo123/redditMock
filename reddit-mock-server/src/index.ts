@@ -33,8 +33,10 @@ const main = async () => {
 	});
 
 	await conn.runMigrations();
+	// await Updoot.delete({});
 
-	//await Post.delete({});
+	// await Post.delete([112]);
+
 	const app = express();
 
 	const RedisStore = connectRedis(session);
